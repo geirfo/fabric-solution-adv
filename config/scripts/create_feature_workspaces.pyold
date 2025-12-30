@@ -20,7 +20,6 @@ if str(config_dir) not in sys.path:
 # Import from fabric_core modules (must be after sys.path modification)
 from fabric_core import auth, create_workspace, assign_permissions
 from fabric_core import get_or_create_git_connection, connect_workspace_to_git, update_workspace_from_git
-from fabric_core import resume_capacity, wait_for_capacity_active  # LEGG TIL
 from fabric_core.utils import load_config, run_command, get_fabric_cli_path
 import json
 # fmt: on
@@ -62,9 +61,6 @@ def main():
 
     solution_version = config.get('solution_version', 'av01')
     azure_config = config['azure']
-    subscription_id = azure_config['subscription_id']  # LEGG TIL
-    capacity_defaults = azure_config.get('capacity_defaults', {})  # LEGG TIL
-    resource_group = capacity_defaults.get('resource_group')  # LEGG TIL
     security_groups = azure_config.get('security_groups', {})
     git_config = config.get('github', {})
 
@@ -75,29 +71,6 @@ def main():
     if not auth():
         print("\n✗ Authentication failed. Cannot proceed with workspace creation.")
         return
-
-    # NYTT: Ensure required capacities are active
-    print("\n=== ENSURING CAPACITIES ARE ACTIVE ===")
-    
-    # Get unique capacities needed for the workspace types
-    required_capacities = set()
-    for workspace_type in workspace_types:
-        capacity_name = get_capacity_for_workspace_type(workspace_type, solution_version)
-        if capacity_name:
-            required_capacities.add(capacity_name)
-    
-    print(f"Required capacities: {', '.join(required_capacities)}")
-    
-    for capacity_name in required_capacities:
-        print(f"\n--- Ensuring {capacity_name} is active ---")
-        
-        # Resume capacity (will fail gracefully if already active)
-        resume_capacity(capacity_name, subscription_id, resource_group)
-        
-        # Wait for it to be active (with timeout)
-        if not wait_for_capacity_active(capacity_name, subscription_id, resource_group, timeout=300):
-            print(f"⚠️  Warning: Capacity {capacity_name} may not be fully ready")
-            print("    Attempting to create workspaces anyway...")
 
     print(
         f"\n=== CREATING FEATURE WORKSPACES FOR BRANCH: {feature_branch} ===")
